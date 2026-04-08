@@ -32,6 +32,9 @@ function render() {
             <NavLink activeClassName="active" className="nav-link" to="/bot">Discord Bot</NavLink>
           </li>
           <li className="nav-item">
+            <NavLink exact activeClassName="active" className="nav-link" to="/bot/console">Console</NavLink>
+          </li>
+          <li className="nav-item">
             <NavLink activeClassName="active" className="nav-link" to="/dashboard">Dashboard</NavLink>
           </li>
           <li className="nav-item">

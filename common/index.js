@@ -4,6 +4,7 @@ const quizTimeModifierPresets = require('./quiz_time_modifier_presets.js');
 const quizLimits = require('./quiz_limits.js');
 const deckPermissions = require('./deck_permissions.js');
 const safeTimers = require('./safe_timers.js');
+const webConsoleEvents = require('./web_console_events.js');
 
 module.exports = {
   deckValidation,
@@ -12,4 +13,5 @@ module.exports = {
   quizLimits,
   deckPermissions,
   safeTimers,
+  webConsoleEvents,
 };

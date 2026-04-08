@@ -18,6 +18,7 @@ import ShiritoriGameCreate from '../shiritori/create';
 import ShiritoriGameRoom from '../shiritori/game';
 import ShiritoriGameJoin from '../shiritori/join';
 import { Dashboard } from '../dashboard';
+import BotConsole from '../bot_console';
 import { ThemeProvider } from '../common/theme_context';
 
 Analytics.init();
@@ -46,6 +47,7 @@ function render() {
             <Route exact path="/shiritori/create" component={ShiritoriGameCreate} />
             <Route exact path="/shiritori/game" component={ShiritoriGameRoom} />
             <Route exact path="/shiritori/join" component={ShiritoriGameJoin} />
+            <Route exact path="/bot/console" component={BotConsole} />
             <Route path="/dashboard" component={Dashboard} />
             <Route
               exact

@@ -16,6 +16,8 @@ const server = require('http').Server(app);
 const sockets = require('socket.io')(server, { path: '/api/socket.io' });
 const kanjiGame = require('./quiz/start.js');
 const shiritori = require('./shiritori/socket_server.js');
+const BOT_CONSOLE_PATH = path.join(__dirname, '..', 'bot', 'src', 'web_console', 'server.js');
+const botConsole = fs.existsSync(BOT_CONSOLE_PATH) ? require(BOT_CONSOLE_PATH) : null;
 const routes = require('./routes');
 
 const GCLOUD_KEY_PATH = path.join(__dirname, '..', 'config', 'gcloud_key.json');
@@ -102,17 +104,17 @@ const sessionStore = new MongoStore({
   mongooseConnection: mongoConnection,
 });
 
-app.use(
-  session({
-    cookie: {
-      maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year. Not really any need to expire sessions regularly.
-    },
-    secret: sessionConfig.secret,
-    store: sessionStore,
-    resave: false,
-    saveUninitialized: false,
-  }),
-);
+const sessionMiddleware = session({
+  cookie: {
+    maxAge: 365 * 24 * 60 * 60 * 1000, // 1 year. Not really any need to expire sessions regularly.
+  },
+  secret: sessionConfig.secret,
+  store: sessionStore,
+  resave: false,
+  saveUninitialized: false,
+});
+
+app.use(sessionMiddleware);
 
 /* Set up auth */
 
@@ -166,5 +168,6 @@ const db = initializeResourceDatabase(databasePath);
 // Start socket servers
 kanjiGame.startListen(sockets);
 shiritori.startListen(sockets, db);
+if (botConsole) botConsole.startListen(sockets, sessionMiddleware);
 
 module.exports = app;
