@@ -225,6 +225,7 @@ class BotConsoleInner extends Component {
     this.inputRef.value = suggestion.value;
     this.clearSuggestions();
     this.inputRef.focus();
+    this.handleAutoResize();
   }
 
   handleKeyDown = (ev) => {
