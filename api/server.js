@@ -1,6 +1,7 @@
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
+const passport = require('passport');
 const session  = require('express-session');
 const MongoStore = require('connect-mongo')(session);
 const { ErrorReporting } = require('@google-cloud/error-reporting');
@@ -168,6 +169,6 @@ const db = initializeResourceDatabase(databasePath);
 // Start socket servers
 kanjiGame.startListen(sockets);
 shiritori.startListen(sockets, db);
-if (botConsole) botConsole.startListen(sockets, sessionMiddleware);
+if (botConsole) botConsole.startListen(sockets, sessionMiddleware, passport);
 
 module.exports = app;

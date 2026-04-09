@@ -1,8 +1,6 @@
 const { webConsoleEvents: socketEvents } = require('kotoba-common');
 const shiritoriManager = require('kotoba-node-common').shiritori;
 const { InteractiveMessage } = require('monochrome-bot/src/components/interactive_message');
-// eslint-disable-next-line import/no-extraneous-dependencies
-const passport = require('passport');
 const { initialize } = require('./init');
 const { createMsgShim, createInteractionShim } = require('./shims');
 const globals = require('../common/globals');
@@ -101,7 +99,7 @@ async function handleCommand(bot, msg, socket, limiter) {
   }
 }
 
-async function startListen(io, sessionMiddleware) {
+async function startListen(io, sessionMiddleware, passport) {
   await initialize();
 
   const ns = io.of(NAMESPACE);
