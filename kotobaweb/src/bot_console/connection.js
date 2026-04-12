@@ -46,10 +46,12 @@ function connect() {
 
   socket.on(socketEvents.Socket.DISCONNECT, () => {
     state.status = ConnectionStatus.DISCONNECTED;
+    state.pending = false;
     notify();
   });
 
   socket.on(socketEvents.Socket.CONNECT_ERROR, (err) => {
+    state.pending = false;
     if (err.message === socketEvents.Message.INVALID_NAMESPACE) {
       state.status = ConnectionStatus.UNAVAILABLE;
       socket.close();
@@ -106,10 +108,7 @@ function send(text) {
   if (!socket || state.status !== ConnectionStatus.CONNECTED) return;
   state.pending = true;
   addMessage({ id: state.nextId, type: MessageType.USER, text });
-  socket.emit(socketEvents.Client.MESSAGE, { text }, () => {
-    state.pending = false;
-    notify();
-  });
+  socket.emit(socketEvents.Client.MESSAGE, { text });
 }
 
 function interact(messageId, customId) {
