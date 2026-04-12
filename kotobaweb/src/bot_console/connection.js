@@ -64,6 +64,7 @@ function connect() {
   });
 
   socket.on(socketEvents.Server.MESSAGE, (data) => {
+    state.pending = false;
     addMessage({
       serverId: data.id,
       id: state.nextId,

@@ -69,34 +69,59 @@ function Md({ text }) {
   );
 }
 
-const ImageStatus = { LOADING: 'loading', LOADED: 'loaded', ERROR: 'error' };
-
-function EmbedImage({ src, onLoad }) {
-  const [status, setStatus] = useState(ImageStatus.LOADING);
+function EmbedImage({
+  src, onLoad, intrinsicWidth, intrinsicHeight,
+}) {
+  const [status, setStatus] = useState('loading');
+  const [probedSize, setProbedSize] = useState(null);
 
   useEffect(() => {
-    setStatus(ImageStatus.LOADING);
-  }, [src]);
+    setStatus('loading');
+    setProbedSize(null);
+    if (intrinsicWidth && intrinsicHeight) return undefined;
+    let cancelled = false;
+    const img = new Image();
+    img.onload = () => {
+      if (cancelled) return;
+      setProbedSize({ w: img.naturalWidth, h: img.naturalHeight });
+    };
+    img.src = src;
+    return () => { cancelled = true; };
+  }, [src, intrinsicWidth, intrinsicHeight]);
 
   const handleLoad = () => {
-    setStatus(ImageStatus.LOADED);
+    setStatus('loaded');
     if (onLoad) onLoad();
   };
 
   const handleError = () => {
-    setStatus(ImageStatus.ERROR);
+    setStatus('error');
     if (onLoad) onLoad();
   };
 
-  if (status === ImageStatus.ERROR) {
+  if (status === 'error') {
     return (
       <div className="bot-embed-image-error">Image failed to load</div>
     );
   }
 
+  const fromServer = intrinsicWidth > 0 && intrinsicHeight > 0;
+  const rawW = fromServer ? intrinsicWidth : probedSize?.w;
+  const rawH = fromServer ? intrinsicHeight : probedSize?.h;
+  const sizeUnknown = !rawW || !rawH;
+  const cls = `bot-embed-image${status !== 'loaded' ? ' loading' : ''}${
+    sizeUnknown ? ' bot-embed-image--unknown-size' : ''}`;
+
   return (
-    <div className={`bot-embed-image${status === ImageStatus.LOADED ? '' : ' loading'}`}>
-      <img src={src} alt="" onLoad={handleLoad} onError={handleError} />
+    <div className={cls}>
+      <img
+        src={src}
+        alt=""
+        width={sizeUnknown ? undefined : rawW}
+        height={sizeUnknown ? undefined : rawH}
+        onLoad={handleLoad}
+        onError={handleError}
+      />
     </div>
   );
 }
@@ -104,10 +129,14 @@ function EmbedImage({ src, onLoad }) {
 EmbedImage.propTypes = {
   src: PropTypes.string.isRequired,
   onLoad: PropTypes.func,
+  intrinsicWidth: PropTypes.number,
+  intrinsicHeight: PropTypes.number,
 };
 
 EmbedImage.defaultProps = {
   onLoad: undefined,
+  intrinsicWidth: undefined,
+  intrinsicHeight: undefined,
 };
 
 function Embed({ embed, attachments, onImageLoad }) {
@@ -128,6 +157,12 @@ function Embed({ embed, attachments, onImageLoad }) {
   useEffect(() => () => {
     if (blobUrlRef.current) URL.revokeObjectURL(blobUrlRef.current);
   }, []);
+
+  const iw = embed.image?.width;
+  const ih = embed.image?.height;
+  const iwN = Number(iw);
+  const ihN = Number(ih);
+  const hasServerDims = Number.isFinite(iwN) && Number.isFinite(ihN);
 
   return (
     <div className="bot-embed" style={{ borderLeftColor: color }}>
@@ -154,7 +189,12 @@ function Embed({ embed, attachments, onImageLoad }) {
         </div>
       )}
       {imageSrc && (
-        <EmbedImage src={imageSrc} onLoad={onImageLoad} />
+        <EmbedImage
+          src={imageSrc}
+          intrinsicWidth={hasServerDims ? iwN : undefined}
+          intrinsicHeight={hasServerDims ? ihN : undefined}
+          onLoad={onImageLoad}
+        />
       )}
       {embed.footer && (
         <div className="bot-embed-footer"><Md text={embed.footer.text} /></div>
@@ -174,7 +214,11 @@ Embed.propTypes = {
       value: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
       inline: PropTypes.bool,
     })),
-    image: PropTypes.shape({ url: PropTypes.string }),
+    image: PropTypes.shape({
+      url: PropTypes.string,
+      width: PropTypes.number,
+      height: PropTypes.number,
+    }),
     footer: PropTypes.shape({ text: PropTypes.string }),
   }).isRequired,
   attachments: PropTypes.arrayOf(PropTypes.shape({

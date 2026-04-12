@@ -14,14 +14,14 @@ import '../main.css';
 function renderMessage(msg, onImageLoad, onInteraction) {
   if (msg.type === MessageType.SYSTEM) {
     return (
-      <div key={msg.id} className="bot-message">
+      <div className="bot-message">
         <em style={{ opacity: 0.5, fontSize: '0.85em' }}>{msg.text}</em>
       </div>
     );
   }
 
   if (msg.type === MessageType.USER) {
-    return <div key={msg.id} className="user-message">{msg.text}</div>;
+    return <div className="user-message">{msg.text}</div>;
   }
 
   const {
@@ -32,7 +32,7 @@ function renderMessage(msg, onImageLoad, onInteraction) {
   const msgClass = editedAt ? 'bot-message bot-message-edited' : 'bot-message';
 
   return (
-    <div key={editedAt ? `${msg.id}-${editedAt}` : msg.id} className={msgClass}>
+    <div className={msgClass}>
       {data.content && (
         <div className="bot-content"><Md text={data.content} /></div>
       )}
@@ -68,6 +68,33 @@ function renderMessage(msg, onImageLoad, onInteraction) {
   );
 }
 
+function messageRowKey(msg) {
+  return msg.type === MessageType.BOT && msg.editedAt
+    ? `${msg.id}-${msg.editedAt}`
+    : msg.id;
+}
+
+/** Last bot row: typing→reply morph shell; last user row: typing dots under bubble while pending. */
+function morphRowFlags(msg, i, messages, pending, typingExiting, morphSettledId) {
+  const isLast = i === messages.length - 1;
+  const isLastBot = isLast && msg.type === MessageType.BOT;
+  const morphTransitioning = isLastBot && typingExiting && !pending;
+  return {
+    rowKey: messageRowKey(msg),
+    morphTransitioning,
+    showMorphShell: isLastBot && (morphTransitioning || msg.id === morphSettledId),
+    typingAfterLastUser: isLast && pending && msg.type === MessageType.USER,
+  };
+}
+
+function suggestionsEqual(a, b) {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i += 1) {
+    if (a[i].label !== b[i].label || a[i].value !== b[i].value) return false;
+  }
+  return true;
+}
+
 class BotConsoleInner extends Component {
   constructor(props) {
     super(props);
@@ -81,6 +108,8 @@ class BotConsoleInner extends Component {
       commands: connState.commands,
       suggestions: [],
       suggestionIndex: -1,
+      typingExiting: false,
+      morphSettledId: null,
     };
 
     this.inputHistory = [];
@@ -91,12 +120,30 @@ class BotConsoleInner extends Component {
 
   componentDidMount() {
     this.unsubscribe = connection.subscribe((connState) => {
-      this.setState({
-        messages: connState.messages,
-        connectionStatus: connState.status,
-        pending: connState.pending,
-        prefixes: connState.prefixes,
-        commands: connState.commands,
+      this.setState((prev) => {
+        const { pending } = connState;
+        let { typingExiting, morphSettledId } = prev;
+
+        // Morph state: new send (pending) cancels; reply landed (pending→false) starts exit animation + CSS fallback timer.
+        if (pending) {
+          clearTimeout(this.typingExitTimer);
+          typingExiting = false;
+          morphSettledId = null;
+        } else if (prev.pending && !pending) {
+          typingExiting = true;
+          clearTimeout(this.typingExitTimer);
+          this.typingExitTimer = setTimeout(this.handleMorphComplete, 480);
+        }
+
+        return {
+          messages: connState.messages,
+          connectionStatus: connState.status,
+          pending,
+          prefixes: connState.prefixes,
+          commands: connState.commands,
+          typingExiting,
+          morphSettledId,
+        };
       });
     });
 
@@ -104,15 +151,63 @@ class BotConsoleInner extends Component {
     if (this.inputRef) this.inputRef.focus();
 
     window.addEventListener('beforeunload', this.handleBeforeUnload);
+    window.addEventListener('focus', this.focusInputIfConnected);
+    document.addEventListener('visibilitychange', this.handleVisibilityChange);
   }
 
-  componentDidUpdate() {
-    this.scrollToBottom();
+  componentDidUpdate(_prevProps, prevState) {
+    // Skip scroll on suggestion-only updates (debounced input) to reduce work while typing.
+    const scrollNeeded = prevState.messages !== this.state.messages
+      || prevState.pending !== this.state.pending
+      || prevState.typingExiting !== this.state.typingExiting
+      || prevState.morphSettledId !== this.state.morphSettledId
+      || prevState.connectionStatus !== this.state.connectionStatus;
+
+    if (scrollNeeded) {
+      this.scrollToBottom();
+    }
   }
 
   componentWillUnmount() {
+    clearTimeout(this.typingExitTimer);
+    clearTimeout(this.suggestionDebounceTimer);
     window.removeEventListener('beforeunload', this.handleBeforeUnload);
+    window.removeEventListener('focus', this.focusInputIfConnected);
+    document.removeEventListener('visibilitychange', this.handleVisibilityChange);
     if (this.unsubscribe) this.unsubscribe();
+  }
+
+  focusInputIfConnected = () => {
+    const { connectionStatus } = this.state;
+    if (connectionStatus !== ConnectionStatus.CONNECTED) return;
+    if (this.inputRef) this.inputRef.focus();
+  }
+
+  handleVisibilityChange = () => {
+    if (document.visibilityState !== 'visible') return;
+    this.focusInputIfConnected();
+  }
+
+  focusMessageLogKeyboard = () => {
+    const root = this.messageListRef.current;
+    if (!root) return;
+    const first = root.querySelector('a[href], button:not([disabled])');
+    (first || root).focus();
+  }
+
+  handleMorphComplete = (e) => {
+    // Ignore bubbled animationend from nested nodes (e.g. embeds).
+    if (e && e.target !== e.currentTarget) return;
+    clearTimeout(this.typingExitTimer);
+    this.setState((prev) => {
+      if (!prev.typingExiting) return null;
+      const last = prev.messages[prev.messages.length - 1];
+      const id = last && last.type === MessageType.BOT ? last.id : null;
+      return {
+        typingExiting: false,
+        morphSettledId: id,
+      };
+    });
   }
 
   handleBeforeUnload = (e) => {
@@ -159,7 +254,12 @@ class BotConsoleInner extends Component {
   }
 
   clearSuggestions = () => {
-    this.setState({ suggestions: [], suggestionIndex: -1 });
+    clearTimeout(this.suggestionDebounceTimer);
+    this.suggestionDebounceTimer = null;
+    this.setState((prev) => {
+      if (prev.suggestions.length === 0 && prev.suggestionIndex === -1) return null;
+      return { suggestions: [], suggestionIndex: -1 };
+    });
   }
 
   handleAutoResize = () => {
@@ -167,6 +267,14 @@ class BotConsoleInner extends Component {
     if (!el) return;
     el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;
+  }
+
+  scheduleUpdateSuggestions = () => {
+    clearTimeout(this.suggestionDebounceTimer);
+    this.suggestionDebounceTimer = setTimeout(() => {
+      this.suggestionDebounceTimer = null;
+      this.updateSuggestions();
+    }, 48);
   }
 
   updateSuggestions = () => {
@@ -218,7 +326,12 @@ class BotConsoleInner extends Component {
 
     const matches = [...historyItems, ...cmdItems].slice(0, 8);
 
-    this.setState({ suggestions: matches, suggestionIndex: -1 });
+    this.setState((prev) => {
+      if (prev.suggestionIndex === -1 && suggestionsEqual(prev.suggestions, matches)) {
+        return null;
+      }
+      return { suggestions: matches, suggestionIndex: -1 };
+    });
   }
 
   acceptSuggestion = (suggestion) => {
@@ -235,8 +348,8 @@ class BotConsoleInner extends Component {
     const { suggestions, suggestionIndex } = this.state;
 
     if (ev.key === 'Tab') {
-      ev.preventDefault();
       if (suggestions.length > 0) {
+        ev.preventDefault();
         const idx = suggestionIndex >= 0 ? suggestionIndex : 0;
         this.acceptSuggestion(suggestions[idx]);
       }
@@ -318,15 +431,15 @@ class BotConsoleInner extends Component {
     }
 
     if (ev.key === 'Escape') {
-      input.value = '';
-      this.historyIndex = -1;
-      this.savedInput = '';
+      input.blur();
+      requestAnimationFrame(() => this.focusMessageLogKeyboard());
     }
   }
 
   render() {
     const {
       messages, connectionStatus, pending, prefixes, suggestions, suggestionIndex,
+      typingExiting, morphSettledId,
     } = this.state;
     const p = (prefixes && prefixes[0]) || 'k!';
 
@@ -347,7 +460,13 @@ class BotConsoleInner extends Component {
 
     return (
       <div id="botConsoleContainer">
-        <div id="messageList" ref={this.messageListRef}>
+        <div
+          id="messageList"
+          ref={this.messageListRef}
+          tabIndex={-1}
+          role="region"
+          aria-label="Bot console messages"
+        >
           <div id="messageListInner">
             {connectionStatus === ConnectionStatus.CONNECTED && (
               <div id="consoleWelcome">
@@ -379,12 +498,37 @@ class BotConsoleInner extends Component {
                 <p className="welcome-hint">Type a command below to get started. Use ↑↓ to recall previous commands.</p>
               </div>
             )}
-            {messages.map((msg) => renderMessage(msg, this.handleImageLoad, this.handleInteraction))}
-            {pending && (
-              <div className="bot-typing">
-                <span /><span /><span />
-              </div>
-            )}
+            {messages.map((msg, i) => {
+              const row = morphRowFlags(msg, i, messages, pending, typingExiting, morphSettledId);
+              const messageEl = renderMessage(msg, this.handleImageLoad, this.handleInteraction);
+
+              return (
+                <div className="bot-console-row" key={row.rowKey}>
+                  {row.showMorphShell ? (
+                    <div
+                      className={`bot-reply-morph${row.morphTransitioning ? '' : ' bot-reply-morph--settled'}`}
+                    >
+                      {row.morphTransitioning && (
+                        <div className="bot-reply-morph-typing" aria-hidden="true">
+                          <span /><span /><span />
+                        </div>
+                      )}
+                      <div
+                        className="bot-reply-morph-body"
+                        onAnimationEnd={row.morphTransitioning ? this.handleMorphComplete : undefined}
+                      >
+                        {messageEl}
+                      </div>
+                    </div>
+                  ) : messageEl}
+                  {row.typingAfterLastUser && (
+                    <div className="bot-typing">
+                      <span /><span /><span />
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
         <div id="consoleInputArea">
@@ -411,7 +555,10 @@ class BotConsoleInner extends Component {
                 ref={(el) => { this.inputRef = el; }}
                 disabled={connectionStatus !== ConnectionStatus.CONNECTED}
                 onKeyDown={this.handleKeyDown}
-                onInput={() => { this.handleAutoResize(); this.updateSuggestions(); }}
+                onInput={() => {
+                  this.handleAutoResize();
+                  this.scheduleUpdateSuggestions();
+                }}
               />
             </div>
             {connectionStatus === ConnectionStatus.CONNECTED && (

@@ -13,13 +13,33 @@
 #messageList {
   flex: 1;
   overflow-y: auto;
+  overflow-anchor: none;
   padding: 16px;
   padding-bottom: 8px;
+}
+
+#messageList:focus-visible {
+  outline: 2px solid var(--btn-primary-bg, #336699);
+  outline-offset: 2px;
+}
+
+#messageList a:focus-visible,
+#messageList button:focus-visible {
+  outline: 2px solid var(--btn-primary-bg, #336699);
+  outline-offset: 2px;
 }
 
 #messageListInner {
   max-width: 800px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+}
+
+.bot-console-row {
+  flex-shrink: 0;
+  min-width: 0;
 }
 
 #consoleInputArea {
@@ -178,9 +198,100 @@
   }
 }
 
+@keyframes userMessageIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 0.7;
+    transform: translateY(0);
+  }
+}
+
 .bot-message {
   margin-bottom: 6px;
-  animation: slideIn 0.2s ease-out;
+}
+
+.bot-reply-morph {
+  position: relative;
+  margin-bottom: 6px;
+}
+
+.bot-reply-morph .bot-message {
+  margin-bottom: 0;
+}
+
+.bot-reply-morph-typing {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  gap: 4px;
+  padding: 8px 0;
+  pointer-events: none;
+  animation: morphTypingOut 0.38s ease forwards;
+}
+
+.bot-reply-morph-typing span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(128, 128, 128, 0.4);
+  animation: typingDot 1.2s ease-in-out infinite;
+}
+
+.bot-reply-morph-typing span:nth-child(2) { animation-delay: 0.15s; }
+.bot-reply-morph-typing span:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes morphTypingOut {
+  from {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  to {
+    opacity: 0;
+    transform: translateY(-3px) scale(0.94);
+  }
+}
+
+.bot-reply-morph-body {
+  animation: morphContentIn 0.42s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.bot-reply-morph--settled .bot-reply-morph-body {
+  opacity: 1;
+  transform: none;
+  animation: none;
+}
+
+@keyframes morphContentIn {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .user-message {
+    animation: none;
+  }
+
+  .bot-reply-morph-typing {
+    animation: none;
+    opacity: 0;
+  }
+
+  .bot-reply-morph-body {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
 }
 
 @keyframes fadeRefresh {
@@ -193,7 +304,6 @@
 }
 
 .user-message {
-  animation: slideIn 0.15s ease-out;
   margin: 8px 0 4px;
   padding: 6px 12px;
   font-size: 0.85em;
@@ -201,6 +311,7 @@
   border-radius: 4px;
   background: rgba(128, 128, 128, 0.08);
   opacity: 0.7;
+  animation: userMessageIn 0.14s ease-out forwards;
 }
 
 .bot-embed {
@@ -277,10 +388,20 @@
   font-size: 0.85em;
 }
 
+.bot-embed-image {
+  margin-top: 6px;
+  border-radius: 4px;
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+}
+
 .bot-embed-image img {
+  display: block;
   max-width: 100%;
   max-height: 180px;
-  margin-top: 6px;
+  width: auto;
+  height: auto;
   border-radius: 4px;
 }
 
@@ -293,8 +414,12 @@
   background: linear-gradient(90deg, rgba(128,128,128,0.08) 25%, rgba(128,128,128,0.15) 50%, rgba(128,128,128,0.08) 75%);
   background-size: 200px 100%;
   animation: shimmer 1.2s ease-in-out infinite;
-  border-radius: 4px;
+}
+
+.bot-embed-image.loading.bot-embed-image--unknown-size {
   min-height: 40px;
+  width: fit-content;
+  max-width: 100%;
 }
 
 .bot-embed-image.loading img {
