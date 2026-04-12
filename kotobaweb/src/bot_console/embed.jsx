@@ -69,14 +69,16 @@ function Md({ text }) {
   );
 }
 
+const ImageStatus = { LOADING: 'loading', LOADED: 'loaded', ERROR: 'error' };
+
 function EmbedImage({
   src, onLoad, intrinsicWidth, intrinsicHeight,
 }) {
-  const [status, setStatus] = useState('loading');
+  const [status, setStatus] = useState(ImageStatus.LOADING);
   const [probedSize, setProbedSize] = useState(null);
 
   useEffect(() => {
-    setStatus('loading');
+    setStatus(ImageStatus.LOADING);
     setProbedSize(null);
     if (intrinsicWidth && intrinsicHeight) return undefined;
     let cancelled = false;
@@ -90,16 +92,16 @@ function EmbedImage({
   }, [src, intrinsicWidth, intrinsicHeight]);
 
   const handleLoad = () => {
-    setStatus('loaded');
+    setStatus(ImageStatus.LOADED);
     if (onLoad) onLoad();
   };
 
   const handleError = () => {
-    setStatus('error');
+    setStatus(ImageStatus.ERROR);
     if (onLoad) onLoad();
   };
 
-  if (status === 'error') {
+  if (status === ImageStatus.ERROR) {
     return (
       <div className="bot-embed-image-error">Image failed to load</div>
     );
@@ -109,7 +111,7 @@ function EmbedImage({
   const rawW = fromServer ? intrinsicWidth : probedSize?.w;
   const rawH = fromServer ? intrinsicHeight : probedSize?.h;
   const sizeUnknown = !rawW || !rawH;
-  const cls = `bot-embed-image${status !== 'loaded' ? ' loading' : ''}${
+  const cls = `bot-embed-image${status !== ImageStatus.LOADED ? ' loading' : ''}${
     sizeUnknown ? ' bot-embed-image--unknown-size' : ''}`;
 
   return (
