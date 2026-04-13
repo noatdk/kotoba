@@ -1,5 +1,4 @@
 /* eslint react/jsx-one-expression-per-line: 0 */
-/* eslint react/no-array-index-key: 0 */
 
 import React, { Component } from 'react';
 import Loader from 'react-loader-spinner';
@@ -36,8 +35,8 @@ function renderMessage(msg, onImageLoad, onInteraction) {
       {data.content && (
         <div className="bot-content"><Md text={data.content} /></div>
       )}
-      {data.embeds && data.embeds.map((embed, i) => (
-        <Embed key={i} embed={embed} attachments={data.attachments} onImageLoad={onImageLoad} />
+      {data.embeds && data.embeds.map((embed) => (
+        <Embed embed={embed} attachments={data.attachments} onImageLoad={onImageLoad} />
       ))}
       {components.length > 0 && (
         <div className="bot-components">
@@ -61,7 +60,7 @@ function renderMessage(msg, onImageLoad, onInteraction) {
       )}
       {reactions && reactions.length > 0 && (
         <div className="bot-reactions">
-          {reactions.map((emoji, i) => <span key={i} className="bot-reaction">{emoji}</span>)}
+          {reactions.map((emoji) => <span className="bot-reaction">{emoji}</span>)}
         </div>
       )}
     </div>

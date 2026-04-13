@@ -1,5 +1,3 @@
-/* eslint react/no-array-index-key: 0 */
-
 import React, {
   useMemo, useEffect, useRef, useState,
 } from 'react';
@@ -111,8 +109,7 @@ function EmbedImage({
   const rawW = fromServer ? intrinsicWidth : probedSize?.w;
   const rawH = fromServer ? intrinsicHeight : probedSize?.h;
   const sizeUnknown = !rawW || !rawH;
-  const cls = `bot-embed-image${status !== ImageStatus.LOADED ? ' loading' : ''}${
-    sizeUnknown ? ' bot-embed-image--unknown-size' : ''}`;
+  const cls = `bot-embed-image${status !== ImageStatus.LOADED ? ' loading' : ''}${sizeUnknown ? ' bot-embed-image--unknown-size' : ''}`;
 
   return (
     <div className={cls}>
@@ -182,8 +179,8 @@ function Embed({ embed, attachments, onImageLoad }) {
       )}
       {embed.fields && embed.fields.length > 0 && (
         <div className="bot-embed-fields">
-          {embed.fields.map((field, i) => (
-            <div key={i} className={`bot-embed-field${field.inline ? ' inline' : ''}`}>
+          {embed.fields.map((field) => (
+            <div className={`bot-embed-field${field.inline ? ' inline' : ''}`}>
               <div className="bot-embed-field-name"><Md text={field.name} /></div>
               <div className="bot-embed-field-value"><Md text={String(field.value)} /></div>
             </div>
